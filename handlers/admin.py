@@ -597,30 +597,46 @@ async def receive_channel_forward(update: Update, context: ContextTypes.DEFAULT_
     message = update.message
     chat = getattr(message, "forward_from_chat", None)
 
+    # New Telegram/PTB forward format support
     if chat is None:
         origin = getattr(message, "forward_origin", None)
+
+        # Forwarded channel post
         chat = getattr(origin, "chat", None)
+
+        # Forwarded anonymous group/supergroup message
+        if chat is None:
+            chat = getattr(origin, "sender_chat", None)
 
     if chat is None:
         await message.reply_text(
-            "❌ Channel/group detect nahi hua.\n\n"
-            "Please channel/group se message forward karo."
+            "❌ Group detect nahi hua.\n\n"
+            "Normal group message forward karne par Telegram group ID nahi deta.\n\n"
+            "Bot ko group me admin banao aur group ke andar /addchannel command bhejo."
+        )
+        return
+
+    if chat.type not in ("channel", "group", "supergroup"):
+        await message.reply_text(
+            "❌ Ye valid channel ya group nahi hai."
         )
         return
 
     context.user_data["pending_channel"] = {
         "chat_id": chat.id,
         "title": chat.title or "Unknown",
+        "chat_type": chat.type,
     }
 
     context.user_data["waiting_channel"] = False
     context.user_data["waiting_plans"] = True
 
     await message.reply_text(
-        f"✅ Channel detected!\n\n"
-        f"Title: {chat.title}\n"
+        f"✅ Channel/Group detected!\n\n"
+        f"Title: {chat.title or 'Unknown'}\n"
+        f"Type: {chat.type}\n"
         f"ID: {chat.id}\n\n"
-        "Now send plans:\n\n"
+        "Ab plans send karo:\n\n"
         "Example:\n"
         "5m:10, 1h:20, 1d:99\n\n"
         "m = minutes\n"
